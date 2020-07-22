@@ -1,0 +1,66 @@
+= GoogleAppScript Recommendation Slide Deck Generator
+
+This project can take the content of a spreadsheet and generate slides in a Slide Deck.
+The format is defined via a template Deck by specifying the template slides in the Silde Master pages.
+
+== Why?
+
+This came about because as a team we spent an enormous amount of time trying to put a presentation together outlining a set of recommendations.
+Quite a bit of the time-suck came when we were refining the ideas and presentation, and had to make fiddly little style and/or content changes to 50+ slides.
+So I spent some time so that (at minimum) I wouldn't have to do that again.
+
+== What does it do?
+
+Basically, it summarizes a set of recommendations into 2 main slides for each subtype:
+- Recommendation Summary
+- Recommendation Tech Radar
+
+The Summary just details the top four recommendations in a particular subtype.
+
+The Tech Radar sticks the recommendations into a radar quadrant, similar to the ThoughtWorks Tech Radar, based on the time horizon for implementation.
+
+Each recommendation is also fully defined in an individual slide.
+The Tech Radar entries have embedded links that allow quick navigation to the detail slide.
+Each detail slide also has links back to the tech radar pages.
+
+The Sheet remembers which slides it generated for each entry, so if you reorganize the slide orders, the next update will regenerate the slide in place, and won't destroy the slide order.
+If the slide has been deleted, the generation script will regenerate a new slide and append to the end of the slide deck.
+
+Each slide is generated based on a template slide which is defined in the Master.
+Content within the spreadsheet is substituted into the slide based on the column headers in the sheet.
+
+If you want to expand the data you're representing in the slide deck, it's pretty simple to update the Master, add a column to the spreadsheet, and simply regenerate.
+If you change styling or colors or positioning of the elements within the slide, just update the master and regenerate.
+All the slides will be consistent, without the headache of manually updating all the slides for a unified style/representation.
+
+== Building the project
+
+You must install the Google App Script CLI (clasp) as a pre-requisite.
+Google has directions for installing clasp here: https://developers.google.com/apps-script/guides/clasp
+Since all testing occurs within the Google Sheet, you need to push your changes via the clasp CLI.
+See above page for information on how to operate the CLI.
+
+[NOTE]
+====
+You must update the `.clasp.json` file with the identifier of your Google Sheet destination for the code.
+Since the code is written in Typescript, a build/translate step needs to take place on your development machine.
+====
+
+== Testing the project
+
+You need to have the link:https://docs.google.com/presentation/d/184_jsbptAIcsIhfERnqpSLKtbrCP6C3TeBZ-O-G-nt8/edit?usp=sharing[Template Deck] and a properly formatted link:https://docs.google.com/spreadsheets/d/1_EoIF6pLjJYgMjVJ3fJ7k_fr5Lpin_XPsEb8rnaIbYQ/edit?usp=sharing[Google Sheet] for the code to work.
+Make a copy of each and update the link to the Template Deck inside the Google Sheet.
+There are directions explaining the components of the Sheet in the sheet.
+
+The example is somewhat silly, and a bit limited at the moment.
+This process starts to provide value when you have a complicated network of cause/effect, and a set of recommendations that may apply to different degrees to multiple problems.
+The benefit is in understanding the interplay of the problems, and which solutions are more valuable or relevant across the problem-space.
+
+The code is somewhat dependent upon the Sheet formatting, but uses a generalized substitution mechanism that could be adapted for other purposes.
+It is flexible in the sense that you can add columns for extra data that can then be substituted into the Slide template.
+However, the process as a whole is somewhat opinionated based on the content and format of what I was building and how I represented the data.
+
+I've thought about generalizing the code, but I don't believe I have enough insight into actual use-cases to make the correct choices.
+If you have ideas of where to apply this, add an issue to the project outlineing your ideas.
+I'm open to suggestion on how to make this more flexible/valuable.
+Over time, I may tweak the tools a bit, depending on need.

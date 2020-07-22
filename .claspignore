@@ -1,0 +1,6 @@
+appscript.js
+tsconfig.json
+package-lock.json
+node_modules/
+.clasp.json
+appscript.json
