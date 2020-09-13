@@ -44,6 +44,8 @@ See above page for information on how to operate the CLI.
 ====
 You must update the `.clasp.json` file with the identifier of your Google Sheet destination for the code.
 Since the code is written in Typescript, a build/translate step needs to take place on your development machine.
+In your spreadsheet, open the Tools -> Script Editor.
+The go to File -> Project properties, which will show a dialog box with the script identification you need in the 'scriptId' property in .clasp.json.
 ====
 
 == Testing the project
@@ -53,14 +55,20 @@ Make a copy of each and update the link to the Template Deck inside the Google S
 There are directions explaining the components of the Sheet in the sheet.
 
 The example is somewhat silly, and a bit limited at the moment.
-This process starts to provide value when you have a complicated network of cause/effect, and a set of recommendations that may apply to different degrees to multiple problems.
+This process starts to provide value when you have a complicated network of cause/effect, and a set of recommendations that may apply in different degrees to multiple problems.
 The benefit is in understanding the interplay of the problems, and which solutions are more valuable or relevant across the problem-space.
 
 The code is somewhat dependent upon the Sheet formatting, but uses a generalized substitution mechanism that could be adapted for other purposes.
 It is flexible in the sense that you can add columns for extra data that can then be substituted into the Slide template.
-However, the process as a whole is somewhat opinionated based on the content and format of what I was building and how I represented the data.
 
-I've thought about generalizing the code, but I don't believe I have enough insight into actual use-cases to make the correct choices.
-If you have ideas of where to apply this, add an issue to the project outlineing your ideas.
-I'm open to suggestion on how to make this more flexible/valuable.
-Over time, I may tweak the tools a bit, depending on need.
+It is beneficial to create entries in the ValumeMap for any fields which have a constrained set of values (enum-like).
+By adding the field name, the enum list-pick value, and the descriptive text to the ValueMap table, it becomes possible to use these values generically in the templates.
+The first slide that is generated illustrates this feature.
+The template specifies three boxes for "collectionN" variables.
+The script will substitute the mapped values for the collection field (in the order they are listed in the sheet).
+It will also highlight the text box whose content matches the individual setting for the displayed entity.
+In the example, the section focus is highlighted automatically.
+
+=== Logical Hierarchy
+
+Correlation -> Collection -> Template,Title -> generatedSlide
