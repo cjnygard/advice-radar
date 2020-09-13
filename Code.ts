@@ -19,55 +19,10 @@
 
 // TODO
 // use rayMap to cluster blips that are similar on the radar
-// figure out how to reorder pages nicely, existing within a larger deck
 // Make badge smaller.  Depends on scripting supporting modifying the padding of the badge element.
 // Increase right-margin of blurb to avoid disappearing under badge.  Depends on scripting supporting modifying right-indent (or right-padding)
-// Track merged content more granularly, so we can avoid blowing away additional slide content/formatting on update.
 
-let FILTER_VALUE: string = 'solution';
-let SUMMARY_SLIDE_LAYOUT_RANGE_NAME: string = 'radarSummarySlideLayoutId';
-let RADAR_SLIDE_LAYOUT_RANGE_NAME: string = 'radarSlideLayoutId';
-let APPENDIX_SLIDE_LAYOUT_RANGE_NAME: string = 'appendixSlideLayoutId';
-let RECOMMENDATION_SLIDE_LAYOUT_RANGE_NAME: string = 'recommendationSlideLayoutId';
-let PRESENTATION_TEMPLATE_RANGE_NAME: string = 'presentationTemplateId';
-let PRESENTATION_RANGE_NAME: string = 'presentationId';
-let HORIZON_CONFIG_RANGE_NAME: string = 'horizonConfig';
-let CATEGORY_CONFIG_RANGE_NAME: string = 'categoryConfig';
-let RADAR_CONFIG_RANGE_NAME: string = 'radarConfig';
-let RADAR_ORDER_COLUMN: string = 'orderColumn';
-let HORIZON_COLUMN: string = 'horizonColumn';
-let DECK_CONFIG_RANGE_NAME: string = 'deckConfig';
-let NODE_TABLE_RANGE_NAME: string = 'nodeTable';
-
-// configuration for radar blurb blocks
-let NUM_ROWS: number = 9;
-let HEIGHT: number = 30;
-let WIDTH: number = 130;
-let LEFT_MARGIN: number = 20;
-let TOP_MARGIN: number = 80;
-let BADGE_WIDTH: number = 22;
-let BADGE_HEIGHT: number = 12;
-let TEXT_INDENT_END: number = 0.27;
-let SPACING: number = 3;
-let BLURB_COLOR: string = '#eeeeee';
-let LOWER_RIGHT_HEIGHT: number = 375;
-let LOWER_RIGHT_WIDTH: number = 700;
-let BLURB_FONT_FAMILY: string = 'Open Sans';
-let BLURB_FONT_WEIGHT: number = 100;
-let BLURB_FONT_SIZE: number = 8;
-let BADGE_FONT_FAMILY: string = 'Open Sans';
-let BADGE_FONT_WEIGHT: number = 100;
-let BADGE_FONT_SIZE: number = 5;
-let BLIP_FONT_FAMILY: string = 'Open Sans';
-let BLIP_FONT_WEIGHT: number = 500;
-let BLIP_FONT_SIZE: number = 12;
-let SELECTION_COLOR: string = '#0078bf';
-let SELECTION_TEXT_COLOR: string = '#ffffff';
-let ZONE_COLORS: string[] = ['#ee5ba0', '#0078bf', '#00bccd'];
-let ZONE_RADIUS: number[] = [115, 210, 320];
-let RADAR_COLOR: any = {};
-let RADAR_RADIUS: any = {};
-let RADIUS_VARIABILITY: number = 25;
+let DECK_CONFIG_RANGE_NAME: string = 'configTable';
 
 interface KeyValue {
     key: any;
@@ -88,9 +43,58 @@ interface Point {
 interface KeyValueMap {
     [key: string]: any;
 }
+interface KeyTypeMap<T> {
+    [key: string]: T;
+}
 
 interface FormatMap<T> {
     [key: string]: (obj: T) => T;
+}
+
+interface Config extends KeyValueMap, Savable {
+    presentationTemplateId: string;
+    presentationId: string;
+    defaultLayoutId: string;
+    newDeckName: string;
+
+    slideTemplateRangeName: string;
+    slideRangeName: string;
+    valueMapRangeName: string;
+    nodeTableRangeName: string;
+    nodeSlidesRangeName: string;
+    collectionRangeName: string;
+
+    radarBlurbRows: number; // = 9,
+    radarBlurbHeight: number; // = 30,
+    radarBlurbWidth: number; // = 130,
+    radarLeftMargin: number; // = 20,
+    radarTopMargin: number; // = 80,
+    radarBlurbBadgeWidth: number; // = 22,
+    radarBlurbBadgeHeight: number; // = 12,
+    radarBlurbTextIndentEnd: number; // = 0.27,
+    radarBlurbSpacing: number; // = 3,
+    radarBlurbColor: string; // = '#eeeeee',
+    radarBlurbFontFamily: string; // = 'Open Sans',
+    radarBlurbFontWeight: number; // = 100,
+    radarBlurbFontSize: number; // = 8,
+    radarBadgeFontFamily: string; // = 'Open Sans',
+    radarBadgeFontWeight: number; // = 100,
+    radarBadgeFontSize: number; // = 5,
+    radarBlipFontFamily: string; // = 'Open Sans',
+    radarBlipFontWeight: number; // = 500,
+    radarBlipFontSize: number; // = 12,
+    radarOriginHeight: number; // = 375,
+    radarOriginWidth: number; // = 700,
+    selectionColor: string; // = '#0078bf',
+    selectionTextColor: string; // = '#ffffff',
+    radarFieldName: string; // = 'horizon',
+    zoneColors: string; // = '#00bccd,#0078bf,#ee5ba0',
+    zoneRadius: string; // = "115,210,320",
+    radarRadiusVariability: number; // = 25,
+    radarZoneColors: string[];
+    radarZoneRadius: number[];
+    radarColor: KeyValueMap;
+    radarRadius: KeyValueMap;
 }
 
 interface Node extends KeyValueMap {
@@ -107,6 +111,7 @@ interface Node extends KeyValueMap {
     users: number;
     description: string;
     title: string;
+    blurb: string;
     observations: string;
     evidence: string;
     implications: string;
@@ -115,7 +120,7 @@ interface Node extends KeyValueMap {
     related: string;
     metrics: string;
     summaryOrder: string;
-    radarPageId: string;
+    slideId: string;
     radarEntryId: string;
     recommendationSlideId: string;
 }
@@ -133,48 +138,118 @@ interface Edge extends KeyValueMap {
     users: number;
     description: string;
 }
-interface DeckConfig extends KeyValueMap, Savable {
-    presentationTemplateId: string;
-    recommendationSlideLayoutId: string;
-    radarSummarySlideLayoutId: string;
-    radarSlideLayoutId: string;
-    appendixSlideLayoutId: string;
-    blankSlideLayoutId: string;
-    newDeckName: string;
-    presentationId: string;
-    appendixSlideId: string;
-    filterColumn: string;
-    filterValue: string;
-    groupColumn: string;
+
+interface ValueMapEntry extends KeyValueMap {
+    field: string;
+    ident: string;
+    value: string;
 }
 
-interface GroupConfig extends KeyValueMap {
-    groupIdent: string;
+interface ValueMap extends KeyValueMap {
+    entries: TableData<ValueMapEntry>;
+    fieldIdentMapper: KeyTypeMap<KeyValueMap>;
+    uniqueKeys: string[];
+    uniqueIdents: string[];
+    indexMap: KeyValueMap;
+    fieldValueEntries: KeyValue[];
+}
+
+interface ValueMapSpec extends KeyValueMap {
+    identMap: KeyValueMap;
+    fieldMap: KeyValueMap;
+}
+
+interface SlideTemplateConfig extends KeyValueMap {
+    template: string;
+    slideId: string;
+}
+
+interface SlideGeneratorSpec extends KeyValueMap {
+    generator: string;
     title: string;
-    recommendationSlideLayoutId: string;
-    radarAppendixId: string;
-    radarPageId: string;
-    radarSummaryPageId: string;
+    collection: string;
+    correlation: string;
+    template: string;
+    slideId: string;
+    //    collectionMap: CollectionMap;
+    slideStorageLocation: string;
+    rayMapper: RayMapper;
 }
 
-interface HorizonConfig extends KeyValueMap {
-    horizonIdent: string;
-    title: string;
+interface NodeInfo extends KeyValueMap {
+    node: Node;
+    slide: KeyValueMap;
 }
 
-interface CategoryConfig extends KeyValueMap {
-    categoryIdent: string;
-    title: string;
+interface FilterSpec extends KeyValueMap {
+    name: string;
+    filter: string;
 }
 
-interface TestRestore extends KeyValueMap {
-    key: string;
-    value: number;
+interface CriteriaSpec extends KeyValueMap {
+    field: string;
+    value: string;
 }
+
+interface Criteria extends KeyValueMap {
+    spec: FilterSpec;
+    criteriaSpec: CriteriaSpec[];
+}
+
+interface CriteriaMap extends KeyTypeMap<Criteria> {}
+
+interface Collection extends KeyValueMap {
+    criteria: Criteria;
+    nodes: NodeInfo[];
+}
+
+interface CollectionMap extends KeyTypeMap<Collection> {}
+
+interface SlideCache extends KeyTypeMap<KeyTypeMap<GoogleAppsScript.Slides.Slide>> {}
+
+interface TypeCollectionIndexer extends KeyValueMap {
+    linkMap: KeyTypeMap<KeyValueMap>; // maps #linkname (usuall #<type><index>) to type/collection names
+    linkSlideMap: KeyValueMap; // maps #linkname directly to slide
+    collectionLabelMap: KeyValueMap; // maps "collection<index>" to collection name  collection1 => quick-wins
+    index: KeyValueMap;
+    count: number;
+}
+
+interface Correlation extends KeyValueMap {
+    collectionMap: CollectionMap;
+    criteria: Criteria;
+    indexer: TypeCollectionIndexer;
+    cache: SlideCache;
+    nodes: NodeInfo[];
+}
+
+interface CorrelationMap extends KeyTypeMap<Correlation> {}
+
+interface TemplateSpec extends KeyValueMap {
+    ident: string;
+    templateId: string;
+    layoutId: string;
+}
+
+interface TemplateMap extends KeyTypeMap<TemplateSpec> {}
 
 interface RayMapper {
     transform(node: Node): Point;
     index(): number;
+    next(): number;
+}
+
+// Syntactic sugar for a lack of actuall class implemntations
+function init_<T>(func: (obj: T) => void): T {
+    let result: T = new Object() as T;
+    func(result);
+    return result;
+}
+
+// Syntactic sugar for a lack of actuall class implemntations
+function create_<T>(): T {
+    let result: T = new Object() as T;
+    return result;
 }
 
 interface DimensionMapper {
@@ -197,12 +272,15 @@ class SimpleRayMapper implements RayMapper {
         return this.count;
     }
 
+    next(): number {
+        return ++this.count;
+    }
+
     transform(node: Node): Point {
         let angle: number = this.findAngle(node);
         let len: number = this.radiusMap[node[this.radiusKey]];
-        let skewDist: number = Math.random() * RADIUS_VARIABILITY * 2 - RADIUS_VARIABILITY;
+        let skewDist: number = Math.random() * config.radarRadiusVariability * 2 - config.radarRadiusVariability;
         let result: Point = fromPolar(angle, len + skewDist);
-        ++this.count;
         return result;
     }
 }
@@ -231,11 +309,15 @@ class ClusterRayMapper implements RayMapper {
         return this.count;
     }
 
+    next(): number {
+        return this.count;
+    }
+
     transform(node: Node): Point {
         let angle: number = this.findAngle(node);
         let len: number = this.radiusMap[node[this.radiusKey]];
         let minRad: number = this.minRadiusVariability;
-        let skewDist: number = Math.random() * (RADIUS_VARIABILITY - minRad) + minRad;
+        let skewDist: number = Math.random() * (config.radarRadiusVariability - minRad) + minRad;
         let skewAngle: number = Math.random() * 360;
         let pos: Point = fromPolar(angle, len);
         let offset: Point = fromPolar(skewAngle, skewDist);
@@ -245,10 +327,14 @@ class ClusterRayMapper implements RayMapper {
 }
 
 // avoid passing these all around
-let deckConfig: DeckConfig;
-let groupConfig: TableData<GroupConfig>;
-let horizonConfig: TableData<HorizonConfig>;
-let categoryConfig: TableData<CategoryConfig>;
+let config: Config;
+let valueMap: ValueMap;
+let slideTemplateTable: TemplateMap;
+let slideGeneratorTable: TableData<SlideGeneratorSpec>;
+let collectionMap: CollectionMap;
+let correlationMap: CorrelationMap;
+let criteriaMap: CriteriaMap;
+let typeCollectionIndexer: TypeCollectionIndexer;
 
 function fromPolar(angle: number, distance: number): Point {
     let rad: number = (angle * Math.PI) / 180.0;
@@ -295,9 +381,183 @@ function findLayoutSlide_(
     return layout;
 }
 
+function createTemplateMap_(td: TableData<TemplateSpec>): TemplateMap {
+    let result: TemplateMap = create_<TemplateMap>();
+    td.data.forEach(function (t: TemplateSpec) {
+        result[t.ident] = t;
+    });
+    return result;
+}
+
+function createCriteriaMap_(td: TableData<FilterSpec>): CriteriaMap {
+    let result: CriteriaMap = create_<CriteriaMap>();
+    // Logger.log('Processing filters');
+    td.data.forEach(function (fs: FilterSpec) {
+        let c: Criteria = init_<Criteria>(function (o: Criteria) {
+            o.spec = fs;
+            o.criteriaSpec = parseCriteriaSpec_(fs.filter);
+        });
+        // Logger.log(fs);
+        // Logger.log(c);
+        result[fs.ident] = c;
+    });
+    return result;
+}
+
+function createCollectionMap_(data: SlideGeneratorSpec[]): CollectionMap {
+    let result: CollectionMap = create_<CollectionMap>();
+    data.forEach(function (gen: SlideGeneratorSpec) {
+        if (!result.hasOwnProperty(gen.collection)) {
+            let c: Collection = init_<Collection>(function (o: Collection) {
+                o.nodes = [];
+                o.criteria = criteriaMap[gen.collection];
+            });
+
+            if (null == c.criteria) {
+                Logger.log(`ERROR: criteria null for [${gen.collection}]`);
+                Logger.log(criteriaMap);
+            }
+            result[gen.collection] = c;
+        }
+    });
+    return result;
+}
+
+function createIndexer_(): TypeCollectionIndexer {
+    let tci: TypeCollectionIndexer = init_<TypeCollectionIndexer>(function (o: TypeCollectionIndexer) {
+        o.linkMap = create_<KeyTypeMap<KeyValueMap>>();
+        o.linkSlideMap = create_<KeyValueMap>();
+        o.collectionMap = create_<KeyValueMap>();
+        o.index = create_<KeyValueMap>();
+        o.count = 0;
+    });
+    return tci;
+}
+
+function createCorrelation_(correlation: string): Correlation {
+    let result: Correlation = init_<Correlation>(function (o: Correlation) {
+        o.collectionMap = create_<CollectionMap>();
+        o.criteria = criteriaMap[correlation];
+        o.cache = create_<SlideCache>();
+        o.indexer = createIndexer_();
+    });
+
+    return result;
+}
+
+function createCorrelationMap_(td: TableData<SlideGeneratorSpec>): CorrelationMap {
+    let result: CorrelationMap = create_<CorrelationMap>();
+    let cache: KeyTypeMap<SlideGeneratorSpec[]> = create_<KeyTypeMap<SlideGeneratorSpec[]>>();
+    let keys: string[] = [];
+    td.data.forEach(function (gen: SlideGeneratorSpec) {
+        if (!result.hasOwnProperty(gen.correlation)) {
+            result[gen.correlation] = createCorrelation_(gen.correlation);
+            cache[gen.correlation] = [];
+            keys.push(gen.correlation);
+        }
+        cache[gen.correlation].push(gen);
+    });
+    keys.forEach(function (k: string) {
+        result[k].collectionMap = createCollectionMap_(cache[k]);
+    });
+
+    return result;
+}
+
+function createValueMap_(td: TableData<ValueMapEntry>): ValueMap {
+    let vm: ValueMap = new Object() as ValueMap;
+    vm.fieldIdentMapper = new Object() as KeyTypeMap<KeyValueMap>;
+    vm.fieldValueEntries = [];
+    vm.uniqueKeys = [];
+    vm.uniqueIdents = [];
+    vm.indexMap = new Object() as KeyValueMap;
+    let counts: KeyValueMap = new Object() as KeyValueMap;
+    td.data.forEach(function (e: ValueMapEntry) {
+        if (!counts.hasOwnProperty(e.field)) {
+            counts[e.field] = 1;
+            vm.uniqueKeys.push(e.field);
+        }
+        if (!vm.fieldIdentMapper.hasOwnProperty(e.field)) {
+            vm.fieldIdentMapper[e.field] = new Object() as KeyValueMap;
+        }
+        vm.fieldIdentMapper[e.field][e.ident] = e.value;
+        let key = `${e.field}${counts[e.field]}`;
+        vm.indexMap[e.ident] = counts[e.field];
+        vm.fieldValueEntries.push({ key: key, value: e.value });
+        vm.fieldValueEntries.push({ key: e.ident, value: e.value });
+        vm.uniqueIdents.push(e.ident);
+        counts[e.field] = counts[e.field] + 1;
+    });
+    return vm;
+}
+
+function parseCriteriaSpec_(filter: string): CriteriaSpec[] {
+    // format  <fieldName>:<matchValue>,<fieldName>:<matchValue>,....
+    let result: CriteriaSpec[] = [];
+    if (null != filter) {
+        filter.split('|').forEach(function (f: string) {
+            let pair: string[] = f.split(':');
+            let fs: CriteriaSpec = init_<CriteriaSpec>(function (o: CriteriaSpec) {
+                o.field = pair[0];
+                o.value = pair[1];
+            });
+            result.push(fs);
+        });
+    }
+    return result;
+}
+
+function filterMatch_(filter: CriteriaSpec, node: Node): boolean {
+    return node[filter.field] == filter.value;
+}
+
+function filtersMatch_(filters: CriteriaSpec[], node: Node): boolean {
+    let result: boolean = true;
+    filters.forEach(function (f) {
+        result = result && filterMatch_(f, node);
+    });
+    return result;
+}
+
+function createNodeInfo_(n: Node, s: KeyValueMap): NodeInfo {
+    let result: NodeInfo = new Object() as NodeInfo;
+    result.node = n;
+    result.slide = s;
+    return result;
+}
+
+function mergeNodeInfo_(rows: TableData<Node>, slides: TableData<KeyValueMap>): NodeInfo[] {
+    let nodeInfo: NodeInfo[] = [];
+    for (let j = 0; j < rows.data.length; ++j) {
+        nodeInfo.push(createNodeInfo_(rows.data[j], slides.data[j]));
+    }
+    return nodeInfo;
+}
+
+function collectEntries_(map: CollectionMap, nodeInfo: NodeInfo[]): void {
+    for (let i in map) {
+        if (map.hasOwnProperty(i)) {
+            map[i].nodes = nodeInfo.filter(function (n: NodeInfo): boolean {
+                return filtersMatch_(map[i].criteria.criteriaSpec, n.node);
+            });
+        }
+    }
+}
+
+function collectCorrelationEntries_(map: CorrelationMap, nodeInfo: NodeInfo[]): void {
+    for (let i in map) {
+        if (map.hasOwnProperty(i)) {
+            map[i].nodes = nodeInfo.filter(function (n: NodeInfo): boolean {
+                return filtersMatch_(map[i].criteria.criteriaSpec, n.node);
+            });
+            collectEntries_(map[i].collectionMap, map[i].nodes);
+        }
+    }
+}
+
 function getKeyValueList_(kvMap: KeyValueMap): KeyValue[] {
     let result: KeyValue[] = [];
-    for (var k in kvMap) {
+    for (let k in kvMap) {
         if (kvMap.hasOwnProperty(k)) {
             result.push({ key: k, value: kvMap[k] });
         }
@@ -307,7 +567,7 @@ function getKeyValueList_(kvMap: KeyValueMap): KeyValue[] {
 function getArrayKeys_(values: any[], keyList: any[]) {
     let keys: any[] = null == keyList ? [] : [...keyList];
 
-    for (var j = 1; j < values.length; j++) {
+    for (let j = 1; j < values.length; j++) {
         keys.push(values[j][0]);
     }
     return keys;
@@ -316,8 +576,8 @@ function getArrayKeys_(values: any[], keyList: any[]) {
 function getArrayTags_(values: any[], prefix: string, kvList: KeyValue[]): any[] {
     let pairs: KeyValue[] = null == kvList ? [] : [...kvList];
 
-    for (var j = 1; j < values.length; j++) {
-        var row = values[j];
+    for (let j = 1; j < values.length; j++) {
+        let row = values[j];
         pairs.push({ key: row[0], value: row[1] });
         pairs.push({ key: prefix + j, value: row[1] });
     }
@@ -326,7 +586,7 @@ function getArrayTags_(values: any[], prefix: string, kvList: KeyValue[]): any[]
 
 function findIndexOf_(entries: TableData<KeyValueMap>, keyColumnName: string, matchValue: string): number {
     let result: number = 0;
-    for (var i = 0; i < entries.data.length; ++i) {
+    for (let i = 0; i < entries.data.length; ++i) {
         if (entries.data[i][keyColumnName] == matchValue) {
             result = i + 1;
         }
@@ -355,7 +615,7 @@ function getDataTags_(obj: any, kvList?: KeyValue[], suffix?: string): KeyValue[
     let pairs: KeyValue[] = null == kvList ? [] : [...kvList];
     let tagSuffix: string = null == suffix ? '' : suffix;
 
-    for (var i in obj) {
+    for (let i in obj) {
         if (obj.hasOwnProperty(i)) {
             pairs.push({ key: i + tagSuffix, value: obj[i] });
         }
@@ -365,7 +625,7 @@ function getDataTags_(obj: any, kvList?: KeyValue[], suffix?: string): KeyValue[
 
 function createMap_<T extends KeyValueMap>(keys: any[], values: any[], kvMap?: KeyValueMap): T {
     let kvPairs: KeyValueMap = null == kvMap ? new Map() : kvMap;
-    for (var i = 0; i < keys.length && null != keys[i] && '' != keys[i]; ++i) {
+    for (let i = 0; i < keys.length && null != keys[i] && '' != keys[i]; ++i) {
         kvPairs[keys[i]] = values[i];
     }
     return kvPairs as T;
@@ -374,7 +634,7 @@ function createMap_<T extends KeyValueMap>(keys: any[], values: any[], kvMap?: K
 function parseTable_<T extends KeyValueMap>(data: any[][]): T[] {
     let headers: any[] = data[0];
     let entries: T[] = [];
-    for (var i = 1; i < data.length; ++i) {
+    for (let i = 1; i < data.length; ++i) {
         entries.push(createMap_<T>(headers, data[i]));
     }
     return entries;
@@ -382,12 +642,12 @@ function parseTable_<T extends KeyValueMap>(data: any[][]): T[] {
 
 function restoreMap_(keys: any[], values: any[], kvMap: KeyValueMap) {
     let len: number = keys.length;
-    for (var i = 0; i < len && null != keys[i] && '' != keys[i]; ++i) {
+    for (let i = 0; i < len && null != keys[i] && '' != keys[i]; ++i) {
         if (kvMap.hasOwnProperty(keys[i])) {
             values[i] = kvMap[keys[i]];
         } else {
             values[i] = `missing [${i}]: [${keys[i]}]`;
-            Logger.log(`${i}: missing value for [${keys[i]}]`);
+            Logger.log(`ERROR: ${i}: missing value for [${keys[i]}]`);
         }
     }
 }
@@ -460,30 +720,37 @@ function createRadarBlurb_(
     count: number
 ): GoogleAppsScript.Slides.Group {
     let index: number = count + 1;
-    let blurb: GoogleAppsScript.Slides.Shape = slide.insertTextBox(wrapTag_('title'), 0, 0, WIDTH, HEIGHT);
-    blurb.getFill().setSolidFill(BLURB_COLOR);
+    Logger.log(`Creating blurb, horizon [${horizon}]`);
+    let blurb: GoogleAppsScript.Slides.Shape = slide.insertTextBox(
+        wrapTag_('blurb'),
+        0,
+        0,
+        config.radarBlurbWidth,
+        config.radarBlurbHeight
+    );
+    blurb.getFill().setSolidFill(config.radarBlurbColor);
     blurb
         .getText()
         .getTextStyle()
-        .setFontFamilyAndWeight(BLURB_FONT_FAMILY, BLURB_FONT_WEIGHT)
-        .setFontSize(BLURB_FONT_SIZE);
-    blurb.getText().getParagraphStyle().setIndentEnd(TEXT_INDENT_END);
+        .setFontFamilyAndWeight(config.radarBlurbFontFamily, config.radarBlurbFontWeight)
+        .setFontSize(config.radarBlurbFontSize);
+    blurb.getText().getParagraphStyle().setIndentEnd(config.radarBlurbTextIndentEnd);
     blurb.setContentAlignment(SlidesApp.ContentAlignment.MIDDLE);
     blurb.setLinkSlide(recommendationSlide);
 
     let badge: GoogleAppsScript.Slides.Shape = slide.insertTextBox(
         `${index}`,
-        WIDTH - BADGE_WIDTH,
+        config.radarBlurbWidth - config.radarBlurbBadgeWidth,
         0,
-        BADGE_WIDTH,
-        BADGE_HEIGHT
+        config.radarBlurbBadgeWidth,
+        config.radarBlurbBadgeHeight
     );
-    badge.getFill().setSolidFill(RADAR_COLOR[horizon]);
+    badge.getFill().setSolidFill(config.radarColor[horizon]);
     badge
         .getText()
         .getTextStyle()
-        .setFontFamilyAndWeight(BADGE_FONT_FAMILY, BADGE_FONT_WEIGHT)
-        .setFontSize(BADGE_FONT_SIZE);
+        .setFontFamilyAndWeight(config.radarBadgeFontFamily, config.radarBadgeFontWeight)
+        .setFontSize(config.radarBadgeFontSize);
     badge
         .getText()
         .getParagraphStyle()
@@ -499,8 +766,14 @@ function createRadarBlurb_(
 
     let group: GoogleAppsScript.Slides.Group = slide.group(groupElements);
     group
-        .setLeft(LEFT_MARGIN + (WIDTH + SPACING) * Math.floor(count / NUM_ROWS))
-        .setTop(TOP_MARGIN + (count % NUM_ROWS) * (HEIGHT + SPACING));
+        .setLeft(
+            config.radarLeftMargin +
+                (config.radarBlurbWidth + config.radarBlurbSpacing) * Math.floor(count / config.radarBlurbRows)
+        )
+        .setTop(
+            config.radarTopMargin +
+                (count % config.radarBlurbRows) * (config.radarBlurbHeight + config.radarBlurbSpacing)
+        );
 
     substituteValuesInSlide_(slide, kvList);
 
@@ -516,15 +789,14 @@ function createRadarBlip_(
     label: string
 ): GoogleAppsScript.Slides.Shape {
     let blip: GoogleAppsScript.Slides.Shape = slide.insertTextBox(label, 0, 0, 30, 30);
-    Logger.log(rayMapper);
     let pos: Point = rayMapper.transform(node);
-    blip.setLeft(LOWER_RIGHT_WIDTH - pos.x).setTop(LOWER_RIGHT_HEIGHT - pos.y);
+    blip.setLeft(config.radarOriginWidth - pos.x).setTop(config.radarOriginHeight - pos.y);
     blip.setContentAlignment(SlidesApp.ContentAlignment.MIDDLE);
     blip.getText().getParagraphStyle().setParagraphAlignment(SlidesApp.ParagraphAlignment.CENTER);
     blip.getText()
         .getTextStyle()
-        .setFontFamilyAndWeight(BLIP_FONT_FAMILY, BLIP_FONT_WEIGHT)
-        .setFontSize(BLIP_FONT_SIZE);
+        .setFontFamilyAndWeight(config.radarBlipFontFamily, config.radarBlipFontWeight)
+        .setFontSize(config.radarBlipFontSize);
     blip.setLinkSlide(recommendationSlide);
 
     return blip;
@@ -541,8 +813,34 @@ function appendNewSlide_(
         return presentation.appendSlide(layout);
     }
 }
+function registerSlide_(
+    cache: SlideCache,
+    tci: TypeCollectionIndexer,
+    slide: GoogleAppsScript.Slides.Slide,
+    generator: string,
+    collection: string
+): void {
+    if (!cache.hasOwnProperty(collection)) {
+        cache[collection] = new Object() as KeyTypeMap<GoogleAppsScript.Slides.Slide>;
+    }
+    cache[collection][generator] = slide;
 
-function updateSlideLinks_(slide: GoogleAppsScript.Slides.Slide, slideMap: any) {
+    if (!tci.index.hasOwnProperty(collection)) {
+        tci.count++;
+        tci.index[collection] = tci.count;
+        tci.collectionMap[`collection${tci.count}`] = collection;
+    }
+
+    let linkName: string = '#' + generator + tci.index[collection];
+    Logger.log(`Register slide generator:collection: [${tci.count}] ${generator}:${collection} => ${linkName}`);
+
+    tci.linkMap[linkName] = create_<KeyValueMap>();
+    tci.linkMap[linkName].generator = generator;
+    tci.linkMap[linkName].collection = collection;
+    tci.linkSlideMap[linkName] = slide;
+}
+
+function updateSlideLinks_(slide: GoogleAppsScript.Slides.Slide, slideMap: any): void {
     slide
         .getPageElements()
         .filter(function (p: GoogleAppsScript.Slides.PageElement) {
@@ -555,11 +853,11 @@ function updateSlideLinks_(slide: GoogleAppsScript.Slides.Slide, slideMap: any) 
             return null != s.getLink();
         })
         .filter(function (s: GoogleAppsScript.Slides.Shape) {
-            var link = s.getLink().getUrl();
+            let link = s.getLink().getUrl();
             return slideMap.hasOwnProperty(link);
         })
         .forEach(function (s: GoogleAppsScript.Slides.Shape) {
-            var link = s.getLink().getUrl();
+            let link = s.getLink().getUrl();
             s.setLinkSlide(slideMap[link]);
         });
 }
@@ -573,11 +871,11 @@ function updateSlideFromLayout_(
     kvList: KeyValue[],
     reformatMap?: FormatMap<GoogleAppsScript.Slides.Shape>
 ) {
-    Logger.log(`updateGroupSlide_: [${layoutId}]`);
+    Logger.log(`updateSlideFromLayout_: [${layoutId}]`);
 
     let slide: GoogleAppsScript.Slides.Slide;
+    let slideLayout: GoogleAppsScript.Slides.Layout = findLayoutSlide_(presentation, layoutId);
     if (null == slideId || slideId == '' || null == (slide = presentation.getSlideById(slideId))) {
-        let slideLayout: GoogleAppsScript.Slides.Layout = findLayoutSlide_(presentation, layoutId);
         slide = appendNewSlide_(presentation, slideLayout, true);
     } else {
         // Clear it out, to prepare for rebuilding from template
@@ -587,17 +885,17 @@ function updateSlideFromLayout_(
     }
 
     // TODO:  Scan through layouts looking for the correct one
-    var slideTemplate = findLayoutSlide_(presentation, templateId);
+    let slideTemplate = findLayoutSlide_(presentation, templateId);
     if (null != slideTemplate) {
         let elements: GoogleAppsScript.Slides.PageElement[] = slideTemplate.getPageElements();
         elements.forEach(function (e: GoogleAppsScript.Slides.PageElement) {
-            var newElement = slide.insertPageElement(e);
+            let newElement = slide.insertPageElement(e);
             // Check for match against a map of reformatting functions (for changing colors)
             if (null != reformatMap) {
                 if (newElement.getPageElementType() == SlidesApp.PageElementType.SHAPE) {
-                    var shape = newElement.asShape();
-                    var text = shape.getText().asString().trim();
-                    Logger.log(`Formatter: checking for [${text}]`);
+                    let shape = newElement.asShape();
+                    let text = shape.getText().asString().trim();
+                    // Logger.log(`Formatter: checking for [${text}]`);
                     if (reformatMap?.hasOwnProperty(text)) {
                         reformatMap?.[text]?.(shape);
                     }
@@ -606,7 +904,7 @@ function updateSlideFromLayout_(
         });
         substituteValuesInSlide_(slide, kvList);
     } else {
-        Logger.log(`Cannot find slide template [${templateId}]`);
+        Logger.log(`ERROR: Cannot find slide template [${templateId}]`);
     }
     //  logSubstitutionData_(kvData);
 
@@ -616,154 +914,146 @@ function updateSlideFromLayout_(
 function updateGroupSlide_(
     presentation: GoogleAppsScript.Slides.Presentation,
     spreadsheet: GoogleAppsScript.Spreadsheet.Spreadsheet,
-    group: KeyValueMap,
-    slideFieldName: string,
-    templateId: string
+    cache: SlideCache,
+    tci: TypeCollectionIndexer,
+    spec: SlideGeneratorSpec,
+    entities: Collection
 ): GoogleAppsScript.Slides.Slide {
-    Logger.log(`updateGroupSlide_: [${templateId}] slideFieldName: ${slideFieldName}`);
-    var slideId = group[slideFieldName];
-    var substitutionData: KeyValue[] = getTagList_(horizonConfig, 'horizon', 'horizonIdent', 'title'); // Remap the horizon tag
-    substitutionData = getDataTags_(group, substitutionData, '');
-
-    let slide: GoogleAppsScript.Slides.Slide = updateSlideFromLayout_(
-        presentation,
-        spreadsheet,
-        deckConfig.blankSlideLayoutId,
-        templateId,
-        slideId,
-        substitutionData
+    let templateSpec: TemplateSpec = slideTemplateTable[spec.template];
+    Logger.log(
+        `updateGroupSlide_: [${templateSpec.templateId}] spec: ${spec.correlation}:${spec.collection}:${spec.generator}:${spec.title}`
     );
-    group[slideFieldName] = slide.getObjectId();
-    return slide;
-}
-
-function updateRadarSlide_(
-    presentation: GoogleAppsScript.Slides.Presentation,
-    spreadsheet: GoogleAppsScript.Spreadsheet.Spreadsheet,
-    group: KeyValueMap,
-    propertyName: string
-): GoogleAppsScript.Slides.Slide {
-    let slide: GoogleAppsScript.Slides.Slide = updateGroupSlide_(
-        presentation,
-        spreadsheet,
-        group,
-        propertyName,
-        deckConfig[RADAR_SLIDE_LAYOUT_RANGE_NAME]
-    );
-    return slide;
-}
-
-function updateSummarySlide_(
-    presentation: GoogleAppsScript.Slides.Presentation,
-    spreadsheet: GoogleAppsScript.Spreadsheet.Spreadsheet,
-    group: KeyValueMap,
-    propertyName: string
-): GoogleAppsScript.Slides.Slide {
-    let slide: GoogleAppsScript.Slides.Slide = updateGroupSlide_(
-        presentation,
-        spreadsheet,
-        group,
-        propertyName,
-        deckConfig[SUMMARY_SLIDE_LAYOUT_RANGE_NAME]
-    );
-    return slide;
-}
-
-function updateAppendixSlide_(
-    presentation: GoogleAppsScript.Slides.Presentation,
-    spreadsheet: GoogleAppsScript.Spreadsheet.Spreadsheet
-): GoogleAppsScript.Slides.Slide {
-    let slideId: string = deckConfig.appendixSlideId;
-    let substitutionData: KeyValue[] = getTagList_(horizonConfig, 'horizon', 'horizonIdent', 'title'); // Remap the horizon tags
-    substitutionData = getTagList_(categoryConfig, 'category', 'categoryIdent', 'title', substitutionData); // Remap the category tag
-    substitutionData = getTagList_(groupConfig, 'group', 'groupIdent', 'title', substitutionData); // getGroupTags_(spreadsheet);
-    let slide: GoogleAppsScript.Slides.Slide = updateSlideFromLayout_(
-        presentation,
-        spreadsheet,
-        deckConfig[APPENDIX_SLIDE_LAYOUT_RANGE_NAME],
-        'noTemplate',
-        slideId,
-        substitutionData
-    );
-    deckConfig['appendixSlideId'] = slide.getObjectId();
-
-    return slide;
-}
-
-function updateRecommendationSlide_(
-    presentation: GoogleAppsScript.Slides.Presentation,
-    spreadsheet: GoogleAppsScript.Spreadsheet.Spreadsheet,
-    horizon: KeyValueMap,
-    group: KeyValueMap,
-    recommendation: Node
-): GoogleAppsScript.Slides.Slide {
-    Logger.log('updateSlide_: ');
-    let slideId: string = recommendation.recommendationSlideId;
-
-    let substitutionData: KeyValue[] = getTagList_(groupConfig, 'group', 'groupIdent', 'title'); // getGroupTags_(spreadsheet);
-    substitutionData.push({ key: 'horizon', value: wrapTag_(recommendation.horizon) }); // Doing something tricky here to remap
-    substitutionData.push({ key: 'category', value: wrapTag_(recommendation.category) }); // Doing something tricky here to remap
-    substitutionData = getDataTags_(recommendation, substitutionData, '');
-    substitutionData = getTagList_(horizonConfig, 'horizon', 'horizonIdent', 'title', substitutionData); // Remap the horizon tag
-    substitutionData = getTagList_(categoryConfig, 'category', 'categoryIdent', 'title', substitutionData); // Remap the category tag
+    let slideId = spec.slideId;
     let reformatMap: FormatMap<GoogleAppsScript.Slides.Shape> = {};
-    reformatMap[wrapTag_('horizon')] = function (s: GoogleAppsScript.Slides.Shape): GoogleAppsScript.Slides.Shape {
-        Logger.log(`Reformatted color for ${recommendation.title}`);
-        s.getFill().setSolidFill(RADAR_COLOR[recommendation.horizon]);
-        return s;
-    };
 
-    reformatMap[recommendation.impact] = function (s: GoogleAppsScript.Slides.Shape): GoogleAppsScript.Slides.Shape {
-        Logger.log(`Reformatted Impact color for ${recommendation.title}`);
-        s.getFill().setSolidFill(SELECTION_COLOR);
-        s.getText().getTextStyle().setBold(true).setForegroundColor(SELECTION_TEXT_COLOR);
-        return s;
-    };
+    var substitutionData: KeyValue[] = [...valueMap.fieldValueEntries];
 
-    let groupIdx: number = findIndexOf_(groupConfig, 'groupIdent', recommendation.subtype);
-    Logger.log(`group[${recommendation.subtype}] idx[${groupIdx}]`);
-    reformatMap[wrapTag_('group' + groupIdx)] = function (
-        s: GoogleAppsScript.Slides.Shape
-    ): GoogleAppsScript.Slides.Shape {
-        Logger.log(`Reformatted Gropu color for ${recommendation.title}`);
-        s.getFill().setSolidFill(SELECTION_COLOR);
-        s.getText().getTextStyle().setBold(true).setForegroundColor(SELECTION_TEXT_COLOR);
+    // create tag/values for summary entries
+    entities?.nodes.forEach(function (ni: NodeInfo) {
+        if (null != ni.node.summaryOrder && ni.node.summaryOrder != '') {
+            substitutionData = getDataTags_(ni.node, substitutionData, ni.node.summaryOrder);
+        }
+    });
+    substitutionData = getDataTags_(spec, substitutionData, '');
+
+    let tag: string = `collection${valueMap.indexMap[spec.collection]}`;
+    Logger.log(`reformatting for tag ${tag}`);
+    reformatMap[wrapTag_(tag)] = function (s: GoogleAppsScript.Slides.Shape): GoogleAppsScript.Slides.Shape {
+        s.getFill().setSolidFill(config.selectionColor);
+        s.getText().getTextStyle().setBold(true).setForegroundColor(config.selectionTextColor);
         return s;
     };
 
     let slide: GoogleAppsScript.Slides.Slide = updateSlideFromLayout_(
         presentation,
         spreadsheet,
-        deckConfig.blankSlideLayoutId,
-        group[RECOMMENDATION_SLIDE_LAYOUT_RANGE_NAME],
+        'default' == templateSpec.layoutId ? config.defaultLayoutId : templateSpec.layoutId,
+        templateSpec.templateId,
         slideId,
         substitutionData,
         reformatMap
     );
-    logSubstitutionData_(substitutionData);
-
-    recommendation.recommendationSlideId = slide.getObjectId();
-
+    spec.slideId = slide.getObjectId();
+    // TODO  doublecheck this cache addressing
+    registerSlide_(cache, tci, slide, spec.generator, spec.collection);
     return slide;
 }
 
-function testRestore() {
-    let spreadsheet: GoogleAppsScript.Spreadsheet.Spreadsheet = SpreadsheetApp.getActive();
+function updateEntitySlide_(
+    presentation: GoogleAppsScript.Slides.Presentation,
+    spreadsheet: GoogleAppsScript.Spreadsheet.Spreadsheet,
+    cache: SlideCache,
+    tci: TypeCollectionIndexer,
+    spec: SlideGeneratorSpec,
+    entities: Collection,
+    nodeInfo: NodeInfo
+): GoogleAppsScript.Slides.Slide {
+    Logger.log(`updateEntitySlide_: [${nodeInfo.node.name}]`);
+    let templateSpec: TemplateSpec = slideTemplateTable[spec.template];
+    let slideId: string = nodeInfo.node[spec.slideStorageLocation];
 
-    let recs: TableData<TestRestore> = parseRangeTable_<TestRestore>(spreadsheet, 'testRestore');
-    Logger.log(recs);
-    Logger.log('Via map');
-    Logger.log(recs.data[0]);
-    recs.data[0]['value'] = 9;
-    Logger.log(recs.data[0]);
-    Logger.log('Via object');
-    Logger.log(recs.data[1]);
-    let rec: TestRestore = recs.data[1];
-    rec.value = 8;
-    recs.data[1] = rec;
-    Logger.log(recs.data[1]);
-    Logger.log(recs);
-    recs.save();
+    let substitutionData: KeyValue[] = [];
+    substitutionData = getDataTags_(spec, substitutionData, '');
+
+    valueMap.uniqueKeys.forEach(function (k: string) {
+        substitutionData.push({ key: k, value: wrapTag_(nodeInfo.node[k]) });
+    }); // Doing something tricky here to remap, this is order dependent in the substitution data
+
+    substitutionData = getDataTags_(nodeInfo.node, substitutionData, '');
+    substitutionData.push(...valueMap.fieldValueEntries);
+
+    //logSubstitutionData_(substitutionData);
+
+    let reformatMap: FormatMap<GoogleAppsScript.Slides.Shape> = {};
+    reformatMap[wrapTag_(config.radarFieldName)] = function (
+        s: GoogleAppsScript.Slides.Shape
+    ): GoogleAppsScript.Slides.Shape {
+        if (config.radarColor.hasOwnProperty(nodeInfo.node[config.radarFieldName])) {
+            s.getFill().setSolidFill(config.radarColor[nodeInfo.node[config.radarFieldName]]);
+        } else {
+            // Logger.log(
+            //    `Unable to reformat color for ${nodeInfo.node.name} no mapping for ${
+            //        nodeInfo.node[config.radarFieldName]
+            //    }`
+            // );
+        }
+        return s;
+    };
+
+    reformatMap[nodeInfo.node.impact] = function (s: GoogleAppsScript.Slides.Shape): GoogleAppsScript.Slides.Shape {
+        s.getFill().setSolidFill(config.selectionColor);
+        s.getText().getTextStyle().setBold(true).setForegroundColor(config.selectionTextColor);
+        return s;
+    };
+
+    valueMap.uniqueKeys.forEach(function (k: string) {
+        let enumIdx: number = valueMap.indexMap[nodeInfo.node[k]];
+        reformatMap[wrapTag_(k + enumIdx)] = function (
+            s: GoogleAppsScript.Slides.Shape
+        ): GoogleAppsScript.Slides.Shape {
+            s.getFill().setSolidFill(config.selectionColor);
+            s.getText().getTextStyle().setBold(true).setForegroundColor(config.selectionTextColor);
+            return s;
+        };
+    });
+
+    reformatMap[wrapTag_(`collection${tci.index[spec.collection]}`)] = function (
+        s: GoogleAppsScript.Slides.Shape
+    ): GoogleAppsScript.Slides.Shape {
+        s.getFill().setSolidFill(config.selectionColor);
+        s.getText().getTextStyle().setBold(true).setForegroundColor(config.selectionTextColor);
+        return s;
+    };
+
+    let slide: GoogleAppsScript.Slides.Slide = updateSlideFromLayout_(
+        presentation,
+        spreadsheet,
+        'default' == templateSpec.layoutId ? config.defaultLayoutId : templateSpec.layoutId,
+        templateSpec.templateId,
+        slideId,
+        substitutionData,
+        reformatMap
+    );
+    // logSubstitutionData_(substitutionData);
+
+    updateSlideLinks_(slide, tci.linkSlideMap);
+    let idx: number = spec.rayMapper.index();
+    let blurbSlides: string[] = ['linked-radar', 'radar'];
+    blurbSlides.forEach(function (s) {
+        if (cache.hasOwnProperty(spec.collection) && cache[spec.collection].hasOwnProperty(s)) {
+            let radarSlide = cache[spec.collection][s];
+            if (null != radarSlide) {
+                createRadarBlurb_(radarSlide, slide, nodeInfo.node[config.radarFieldName], substitutionData, idx);
+                createRadarBlip_(radarSlide, slide, nodeInfo.node, spec.rayMapper, substitutionData, `${1 + idx}`);
+            }
+        }
+    });
+    spec.rayMapper.next();
+
+    nodeInfo.slide[spec.slideStorageLocation] = slide.getObjectId();
+    registerSlide_(cache, tci, slide, nodeInfo.node.name, spec.collection);
+
+    return slide;
 }
 
 function copyReportTemplate_(templateId: string, title: string): string {
@@ -775,108 +1065,94 @@ function copyReportTemplate_(templateId: string, title: string): string {
     return driveResponse.getId();
 }
 
+function updateSlide_(
+    presentation: GoogleAppsScript.Slides.Presentation,
+    spreadsheet: GoogleAppsScript.Spreadsheet.Spreadsheet,
+    slideCache: SlideCache,
+    tci: TypeCollectionIndexer,
+    spec: SlideGeneratorSpec
+): GoogleAppsScript.Slides.Slide {
+    let slide: GoogleAppsScript.Slides.Slide;
+
+    Logger.log('updateSlide_:');
+    let cor: Correlation = correlationMap[spec.correlation];
+    let col: CollectionMap = cor.collectionMap;
+    switch (spec.generator) {
+        case 'linked-radar':
+        case 'radar':
+        case 'summary':
+        case 'static':
+            slide = updateGroupSlide_(presentation, spreadsheet, cor.cache, cor.indexer, spec, col[spec.collection]);
+            break;
+        case 'linked-each':
+        case 'each':
+            col[spec.collection].nodes.forEach(function (ni: NodeInfo) {
+                updateEntitySlide_(presentation, spreadsheet, cor.cache, cor.indexer, spec, col[spec.collection], ni);
+            });
+            break;
+    }
+
+    return slide;
+}
+
 function updateSlideDeck_(
     spreadsheet: GoogleAppsScript.Spreadsheet.Spreadsheet,
     presentation: GoogleAppsScript.Slides.Presentation
 ) {
-    horizonConfig = parseRangeTable_<HorizonConfig>(spreadsheet, HORIZON_CONFIG_RANGE_NAME);
-    categoryConfig = parseRangeTable_<CategoryConfig>(spreadsheet, CATEGORY_CONFIG_RANGE_NAME);
-    groupConfig = parseRangeTable_<GroupConfig>(spreadsheet, RADAR_CONFIG_RANGE_NAME);
-    let rowEntries: TableData<Node> = parseRangeTable_<Node>(spreadsheet, NODE_TABLE_RANGE_NAME);
+    valueMap = createValueMap_(parseRangeTable_<ValueMapEntry>(spreadsheet, config.valueMapRangeName));
+    slideTemplateTable = createTemplateMap_(parseRangeTable_<TemplateSpec>(spreadsheet, config.slideTemplateRangeName));
+    slideGeneratorTable = parseRangeTable_<SlideGeneratorSpec>(spreadsheet, config.slideRangeName);
+    //    collectionMap = createCollectionMap_(parseRangeTable_<FilterSpec>(spreadsheet, config.collectionRangeName));
+    criteriaMap = createCriteriaMap_(parseRangeTable_<FilterSpec>(spreadsheet, config.collectionRangeName));
+    let rowEntries: TableData<Node> = parseRangeTable_<Node>(spreadsheet, config.nodeTableRangeName);
+    let rowSlideEntries: TableData<KeyValueMap> = parseRangeTable_<KeyValueMap>(
+        spreadsheet,
+        config.nodeSlidesRangeName
+    );
+    correlationMap = createCorrelationMap_(slideGeneratorTable);
+    let nodes: NodeInfo[] = mergeNodeInfo_(rowEntries, rowSlideEntries);
+    collectCorrelationEntries_(correlationMap, nodes);
 
-    for (let i: number = 0; i < horizonConfig.data.length; ++i) {
-        let hc: string = horizonConfig.data[i]['horizonIdent'];
-        Logger.log(`[${i}] [${hc}]`);
-        RADAR_RADIUS[hc] = ZONE_RADIUS[i];
-        RADAR_COLOR[hc] = ZONE_COLORS[i];
-    }
-
-    let slideMap: any = {};
-
-    let summaries: any[] = [];
-    let radars: any[] = [];
-    groupConfig.data.forEach(function (g: any) {
-        g.summarySlide = updateSummarySlide_(presentation, spreadsheet, g, 'radarSummaryPageId');
-        g.radarSlide = updateRadarSlide_(presentation, spreadsheet, g, 'radarPageId'); // In case we want to do something with it after update
-        radars.push(g.radarSlide); // In case we want to do something with it after update
-        summaries.push(g.summarySlide);
+    valueMap.uniqueIdents.forEach(function (s: string) {
+        config.radarRadius[s] = config.radarZoneRadius[valueMap.indexMap[s] - 1];
+        config.radarColor[s] = config.radarZoneColors[valueMap.indexMap[s] - 1];
     });
 
-    for (var j = 0; j < radars.length; ++j) {
-        slideMap['#radar' + (j + 1)] = radars[j];
-        slideMap['#summary' + (j + 1)] = summaries[j];
-    }
+    let slideCache: SlideCache = new Object() as SlideCache;
 
-    updateAppendixSlide_(presentation, spreadsheet);
-
-    groupConfig.data.forEach(function (g: any) {
-        Logger.log(`Processing group [${g.groupIdent}]`);
-        // Logger.log(g);
-        let groupFilter: string = g.groupIdent;
-        g.radarIndexSlide = updateRadarSlide_(presentation, spreadsheet, g, 'radarAppendixId'); // In case we want to do something with it after update
-        let count: number = 0;
-        let summaryMap: any[] = [];
-        let rayMapper: RayMapper = new SimpleRayMapper(RADAR_RADIUS, 'horizon');
-        let rayMapperAppendix: RayMapper = new SimpleRayMapper(RADAR_RADIUS, 'horizon');
-
-        horizonConfig.data.forEach(function (h: any) {
-            let horizonFilter: string = h.horizonIdent;
-
-            rowEntries.data.forEach(function (r: any) {
-                Logger.log(`Processing row [${r.title}]`);
-                let type: string = r[deckConfig.filterColumn];
-                let group: string = r[deckConfig.groupColumn];
-                let horizon: string = r.horizon;
-                if (type == deckConfig.filterValue && group == groupFilter && horizon == horizonFilter) {
-                    // Logger.log(`[${type}:${group}:${horizon}]`);
-
-                    if (null != r.summaryOrder && r.summaryOrder > 0) {
-                        summaryMap = getDataTags_(r, summaryMap, r.summaryOrder);
-                    }
-
-                    let kvMap: any = getDataTags_(r);
-
-                    let recommendationSlide: GoogleAppsScript.Slides.Slide = updateRecommendationSlide_(
-                        presentation,
-                        spreadsheet,
-                        h,
-                        g,
-                        r
-                    );
-                    updateSlideLinks_(recommendationSlide, slideMap);
-                    let idx: number = rayMapper.index();
-                    createRadarBlurb_(g.radarSlide, recommendationSlide, horizon, kvMap, idx);
-                    createRadarBlip_(g.radarSlide, recommendationSlide, r, rayMapper, kvMap, `${1 + idx}`);
-                    createRadarBlurb_(g.radarIndexSlide, recommendationSlide, horizon, kvMap, idx);
-                    createRadarBlip_(g.radarIndexSlide, recommendationSlide, r, rayMapperAppendix, kvMap, `${1 + idx}`);
-
-                    ++count;
-                }
-            });
-        });
-        substituteValuesInSlide_(g.summarySlide, summaryMap);
+    slideGeneratorTable.data.forEach(function (g: any) {
+        if (g.slideId.includes('column')) {
+            g.slideStorageLocation = g.slideId.split(':')[1];
+        }
+        g.rayMapper = new SimpleRayMapper(config.radarRadius, config.radarFieldName);
+        updateSlide_(presentation, spreadsheet, slideCache, typeCollectionIndexer, g);
     });
-    rowEntries.save();
-    groupConfig.save();
+
+    rowSlideEntries.save();
+    slideGeneratorTable.save();
 }
 
 function updateSlideDeck() {
     let spreadsheet: GoogleAppsScript.Spreadsheet.Spreadsheet = SpreadsheetApp.getActive();
 
-    deckConfig = parseRangeObject_(spreadsheet, DECK_CONFIG_RANGE_NAME) as DeckConfig;
-    Logger.log(deckConfig);
+    config = parseRangeObject_(spreadsheet, DECK_CONFIG_RANGE_NAME) as Config;
+    config.radarZoneColors = config.zoneColors.split(':');
+    config.radarZoneRadius = config.zoneRadius.split('|').map(function (s: string): number {
+        return +s;
+    });
+    config.radarRadius = new Object() as KeyValueMap;
+    config.radarColor = new Object() as KeyValueMap;
+    Logger.log(config);
 
-    let presentationId: string = deckConfig.presentationId; //presentationIdRange.getValue();
+    let presentationId: string = config.presentationId; //presentationIdRange.getValue();
     let presentation: GoogleAppsScript.Slides.Presentation;
     if (null == presentationId || presentationId == '' || null == (presentation = SlidesApp.openById(presentationId))) {
-        Logger.log(
-            `Creating new deck [${deckConfig.newDeckName}] from template [${deckConfig.presentationTemplateId}]`
-        );
-        let presentationTemplateId: string = deckConfig.presentationTemplateId; //spreadsheet.getRangeByName(PRESENTATION_TEMPLATE_RANGE_NAME).getValue();
-        presentationId = copyReportTemplate_(presentationTemplateId, deckConfig.newDeckName);
-        deckConfig.presentationId = presentationId; //presentationIdRange.setValue(presentationId);
+        Logger.log(`Creating new deck [${config.newDeckName}] from template [${config.presentationTemplateId}]`);
+        let presentationTemplateId: string = config.presentationTemplateId; //spreadsheet.getRangeByName(PRESENTATION_TEMPLATE_RANGE_NAME).getValue();
+        presentationId = copyReportTemplate_(presentationTemplateId, config.newDeckName);
+        config.presentationId = presentationId; //presentationIdRange.setValue(presentationId);
         presentation = SlidesApp.openById(presentationId);
     }
     updateSlideDeck_(spreadsheet, presentation);
-    deckConfig.save();
+    config.save();
 }

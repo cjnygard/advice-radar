@@ -44,23 +44,109 @@ See above page for information on how to operate the CLI.
 ====
 You must update the `.clasp.json` file with the identifier of your Google Sheet destination for the code.
 Since the code is written in Typescript, a build/translate step needs to take place on your development machine.
+In your spreadsheet, open the Tools -> Script Editor.
+The go to File -> Project properties, which will show a dialog box with the script identification you need in the 'scriptId' property in .clasp.json.
 ====
 
 == Testing the project
 
-You need to have the link:https://docs.google.com/presentation/d/184_jsbptAIcsIhfERnqpSLKtbrCP6C3TeBZ-O-G-nt8/edit?usp=sharing[Template Deck] and a properly formatted link:https://docs.google.com/spreadsheets/d/1_EoIF6pLjJYgMjVJ3fJ7k_fr5Lpin_XPsEb8rnaIbYQ/edit?usp=sharing[Google Sheet] for the code to work.
+You need to have the link:https://docs.google.com/presentation/d/1ZTSRRXKXjbd_QJ32ID3iOAtcovn3fTn-u9vIteUf_Pc/edit?usp=sharing[Template Deck] and a properly formatted link:https://docs.google.com/spreadsheets/d/1cTXqZnLv7_Zk_roGjPZJhSCxcBNIX7lWFSW5bcT8G9g/edit?usp=sharing[Google Sheet] for the code to work.
 Make a copy of each and update the link to the Template Deck inside the Google Sheet.
 There are directions explaining the components of the Sheet in the sheet.
 
 The example is somewhat silly, and a bit limited at the moment.
-This process starts to provide value when you have a complicated network of cause/effect, and a set of recommendations that may apply to different degrees to multiple problems.
+This process starts to provide value when you have a complicated network of cause/effect, and a set of recommendations that may apply in different degrees to multiple problems.
 The benefit is in understanding the interplay of the problems, and which solutions are more valuable or relevant across the problem-space.
 
 The code is somewhat dependent upon the Sheet formatting, but uses a generalized substitution mechanism that could be adapted for other purposes.
 It is flexible in the sense that you can add columns for extra data that can then be substituted into the Slide template.
-However, the process as a whole is somewhat opinionated based on the content and format of what I was building and how I represented the data.
 
-I've thought about generalizing the code, but I don't believe I have enough insight into actual use-cases to make the correct choices.
-If you have ideas of where to apply this, add an issue to the project outlineing your ideas.
-I'm open to suggestion on how to make this more flexible/valuable.
-Over time, I may tweak the tools a bit, depending on need.
+== Using the slide generation
+
+The slide generation is a combination of the spreadsheet and a template Deck.
+The Deck template contains the set of page templates as layouts in the slide masters.
+The ids of the slide masters are referenced in the sheet to specify how to build each slide in the deck.
+
+The sheet contains the data (and the generation code), along with the configuration defining what slides are to be created, with which data entries, using which slide template.
+
+=== Slide Templates
+
+In general, slide templates can contain anything a normal slide would.
+The software uses simple string substitution to replace the template variables with data from the corresponding column in the sheet.
+The format is the familiar "handlebars" style of template variables.
+For example, if the variable is named `foo`, then anywhere that `{{foo}}` appears in the template will be replaced with the contents of the foo column.
+
+=== Spreadsheet
+
+The sheet has some documentation built into it.
+In general, the `config` and `slides` tabs control how the data is translated into the slide deck.
+The `node` tab has the individual observations/recommendations entries, with a set of descriptive properties.
+The 'edges' tab describes the relationships between the nodes, and defines the graph.
+The sheet has directions included that explain the content of the node and edge
+
+==== Config tab
+
+The config tab has the overall configuration of various parameters that drive how the code performs the generation.
+For example, the 'blurb' boxes shown on the radar quadrant can be resized to some extent.
+
+The config tab also has the Value Map, which provides a constrained vocabulary for certain fields in the node table.
+These are essentially "enums", providing a short-name "ident" for use within the sheet, and a more descriptive "value" for use in the deck output.
+
+The generation code will also construct a set of key/value mappings for these entries to make slide template construction easier.
+Each `field` will have an enumerated key which maps to a corresponding `ident` value.
+The enumerations will be done in the order they were specified in the table.
+For example:
+
+* horizon1 => quick-win
+* horizon2 => short-term
+* horizon3 => strategic
+
+This allows the templates to contain reference to `{{horizon1}}` and have it replaced by `Quick Wins` during generation.
+The generation code can also highlight the box containing the variable if the entry being generated has it's `horizon` property set to `quick-win`.
+
+It is beneficial to create entries in the ValueMap for any fields which have a constrained set of values (enum-like).
+By adding the field name, the enum list-pick value, and the descriptive text to the ValueMap table, it becomes possible to use these values generically in the templates.
+
+The first slide that is generated from the example data illustrates this feature.
+The template specifies three boxes for "collectionN" variables.
+The script will substitute the mapped values for the collection field (in the order they are listed in the sheet).
+It will also highlight the text box whose content matches the individual setting for the displayed entity.
+In the example, the section focus is highlighted automatically.
+
+At the bottom of the config tab, the Generator types table provides the constrained values for choosing the type of generator.
+In general, there are two types: collection-based or each-based.
+
+Group-based generators use all the data within a collection (filtered-set) as input to the slide.
+Only one single slide results from this process.
+
+Each-based generators will generate a slide for each entry in the collection (filtered-set).
+The properties from the individual entry are used to substitute into the slide template.
+
+For each of these cases, the content of the ValueMap will be used to generate the final output of the text.
+
+==== Slides tab
+
+The slides tab contains the definitions related to generating slides, including the templates, the filters used to construct a collection, and a set of generator specifications to be executed in order.
+
+The template section defines an `ident` for the template, which is used in the generator spec to define the template.
+Each entry defines both the layoutId for the slide page, and the content templateId to be used to construct the page.
+Each of these id's should reference a page in the master layout configuration.
+
+The Collections section defines an `ident` for the collection, which is used in the generator spec to define the set of data to operate on for each slide generation directive.
+Each entry defines a filter, which is just a comma-separated list of `field:value` pairs defining the required value of an entry property.
+
+The Generation specs define what slides to create, and in what order.
+It contains a correlation key, which references a `collection` and defines a subset of the data for all related generator entries.
+The `collection` field defines a collection within the correlation subset, to group the data for slide generation.
+The `generator` property defines what type of generation to be performed (collection-based or each-based).
+The `template` property references one of the template definitions, to specify what the slide(s) will look like.
+
+The `title` property provides a variable that can be referenced in the slide template to define the title of the slide.
+Note the use of `{{name}}` in some of the each-based generator entries.  This substitutes the `{{title}}` variable in the slide with `{{name}}`, which will then subsequently be replaced with the `name` property from the node entry.
+This is a trick that allows us to have consistent slide templates, and also not deal with property-name override behaviors in the sheet data.
+
+The `slideId` property holds the value of the generated slideId.
+This allows subsequent `Update` of the data into the slide to reference the originally generated slide.
+This prevents the slide order from getting rearranged since the code will update the slide in-place.
+
+One note, for each-based generators, a special `column:column-name` value in the slideId will direct the code to store the slideId in the corresponding column of each of the entries (in the node table).
